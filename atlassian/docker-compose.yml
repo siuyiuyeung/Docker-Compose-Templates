@@ -1,0 +1,86 @@
+version: '3.5'
+services:
+  postgres:
+    image: postgres:14
+    container_name: atlassian_postgres
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: "psql -U postgres"
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    environment:
+      - TZ=Asia/Hong_Kong
+      - POSTGRES_PASSWORD=supersecretpassword
+    networks:
+      - atlassian_net
+
+  jira:
+    image: atlassian/jira-software:9.10.0
+    container_name: jira
+    depends_on:
+      - postgres
+    volumes:
+      - ./jira-data:/var/atlassian/application-data/jira
+    environment:
+      - TZ=Asia/Hong_Kong
+      - ATL_JDBC_URL=jdbc:postgresql://postgres:5432/jiradb
+      - ATL_JDBC_USER=jirauser
+      - ATL_JDBC_PASSWORD=jirapassword
+      - ATL_DB_DRIVER=org.postgresql.Driver
+      - ATL_DB_TYPE=postgres72
+      - ATL_PROXY_NAME=192.168.3.231
+      - ATL_PROXY_PORT=443
+      - ATL_TOMCAT_SECURE=true
+      - ATL_TOMCAT_SCHEME=https
+      - ATL_TOMCAT_PORT=8080
+      - ATL_TOMCAT_CONTEXTPATH=/jira
+    networks:
+      - atlassian_net
+
+  confluence:
+    image: atlassian/confluence:8.4.0
+    container_name: confluence
+    # profiles: ["DISABLE"]
+    depends_on:
+      - postgres
+    volumes:
+      - ./confluence-data:/var/atlassian/application-data/confluence
+    environment:
+      - TZ=Aisa/Hong_Kong
+      - ATL_JDBC_URL=jdbc:postgresql://postgres:5432/confluencedb
+      - ATL_JDBC_USER=confluenceuser
+      - ATL_JDBC_PASSWORD=confluencepassword
+      - ATL_DB_DRIVER=org.postgresql.Driver
+      - ATL_DB_TYPE=postgresql
+      - ATL_PROXY_NAME=192.168.3.231
+      - ATL_PROXY_PORT=443
+      - ATL_TOMCAT_SECURE=true
+      - ATL_TOMCAT_SCHEME=https
+      - ATL_TOMCAT_PORT=8090
+      - ATL_TOMCAT_CONTEXTPATH=/confluence
+    networks:
+      - atlassian_net
+
+  nginx:
+    image: nginx:1.22.1
+    container_name: atlassian_reverse_proxy
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/cert:/etc/nginx/cert
+      - ./log:/var/log/nginx
+    depends_on:
+      - jira
+    ports:
+      - "8443:443"
+    environment:
+      - TZ=Asia/Hong_Kong
+    networks:
+      - atlassian_net
+
+networks:
+  atlassian_net:
+    driver: bridge

@@ -1,9 +1,13 @@
 version: '3.8'
 services:
     jenkins:
-      image: jenkins/jenkins:lts
+      build:
+        context: .
       privileged: true
       user: root
+      environment:
+        - GIT_SSL_NO_VERIFY=true
+        - JENKINS_OPTS='-Dhudson.remoting.Engine.ignoreCertificateCheck=true -Dcom.cloudbees.plugins.credentials.provider.cert.CertificateCredentialsProvider.ignoreDomains=true'
       ports:
         - '8080:8080'
         - '50000:50000'
